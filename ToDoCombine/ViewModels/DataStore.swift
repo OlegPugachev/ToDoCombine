@@ -19,13 +19,12 @@ class DataStore: ObservableObject {
     }
     
     func updateToDo(_ toDo: ToDo) {
-//        if let index = toDos.firstIndex(of: toDo) {
-//            toDos[index] = toDo
-//        }
+        guard let index = toDos.firstIndex(where: { $0.id == toDo.id }) else { return }
+        toDos[index] = toDo
     }
     
     func deleteToDo(at indexSet: IndexSet) {
-        
+        toDos.remove(atOffsets: indexSet)
     }
     
     func loadToDos() {
