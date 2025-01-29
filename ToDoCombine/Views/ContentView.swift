@@ -44,6 +44,10 @@ struct ContentView: View {
 //                modalType in
 //                modalType
             }
+            .alert(item: $dataStore.appError) { appError in
+                Alert(title: Text("Alert !!!"), message:
+                        Text(appError.error.localizedDescription))
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ import Foundation
 
 class DataStore: ObservableObject {
     @Published var toDos: [ToDo] = []
+    @Published var appError: ErrorType? = nil
     
     init() {
         print(FileManager.docDirUrl.path)
@@ -35,10 +36,12 @@ class DataStore: ObservableObject {
                     do {
                         self.toDos = try decoder.decode([ToDo].self, from: data)
                     } catch {
-                        print("Error decoding file: \(error.localizedDescription)")
+                        //print("Error decoding file: \(ToDoError.decodingError.localizedDescription)")
+                        appError = ErrorType(error: .decodingError)
                     }
                 case .failure(let error):
-                    print("Error reading file: \(error.localizedDescription)")
+                    //print("Error reading file: \(error.localizedDescription)")
+                    appError = ErrorType(error: error)
             }
         }
     }
@@ -51,11 +54,13 @@ class DataStore: ObservableObject {
             let jsonString = String(decoding: data, as: UTF8.self)
             FileManager().saveDocument(contents: jsonString, docName: fileName) { (error) in
                 if let error = error {
-                    print("Error encoding file: \(error.localizedDescription)")
+                    //print("Error encoding file: \(error.localizedDescription)")
+                    appError = ErrorType(error: error)
                 }
             }
         } catch {
-            print("Error saving file: \(error.localizedDescription)")
+            //print("Error saving file: \(ToDoError.encodingError.localizedDescription)")
+            appError = ErrorType(error: .encodingError)
         }
     }
     
