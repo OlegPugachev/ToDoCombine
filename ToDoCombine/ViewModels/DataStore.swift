@@ -8,22 +8,45 @@ class DataStore: ObservableObject {
     var addToDo = PassthroughSubject<ToDo, Never>()
     var updateToDo = PassthroughSubject<ToDo, Never>()
     var deleteToDo = PassthroughSubject<IndexSet, Never>()
+    var loadToDos = Just(FileManager.docDirUrl.appendingPathComponent(fileName))
     
     var subscription = Set<AnyCancellable>()
     
     init() {
         print(FileManager.docDirUrl.path)
         addSubscriptions()
-        if FileManager().docExists(docName: fileName) {
-            loadToDos()
-        }
     }
     
     func addSubscriptions() {
+        loadToDos
+            .filter{ FileManager.default.fileExists(atPath: $0.path)}
+            .tryMap{ url in
+                try Data(contentsOf: url)
+            }
+            .decode(type: [ToDo].self, decoder: JSONDecoder())
+            .subscribe(on: DispatchQueue(label: "background queue"))
+            .receive(on: DispatchQueue.main)
+            .sink { [unowned self] completion in
+                switch completion {
+                    case .finished:
+                        print("Loading Completed")
+                        toDosSubscription()
+                    case .failure(let error):
+                        if error is ToDoError {
+                            appError = ErrorType(error: error as! ToDoError)
+                        } else {
+                            appError = ErrorType(error: ToDoError.decodingError)
+                            toDosSubscription()
+                        }
+                }
+            } receiveValue: { (toDos) in
+                self.toDos = toDos
+            }
+            .store(in: &subscription)
+        
         addToDo
-            .sink{[unowned self] toDo in
+            .sink {[unowned self] toDo in
                 toDos.append(toDo)
-                saveToDos()
             }
             .store(in: &subscription)
         
@@ -31,68 +54,39 @@ class DataStore: ObservableObject {
             .sink{[unowned self] toDo in
                 guard let index = toDos.firstIndex(where: { $0.id == toDo.id }) else { return }
                 toDos[index] = toDo
-                saveToDos()
             }
             .store(in: &subscription)
         
         deleteToDo
             .sink {[unowned self] indexSet in
                 toDos.remove(atOffsets: indexSet)
-                saveToDos()
             }
             .store(in: &subscription)
     }
     
-//    func addToDo(_ toDo: ToDo) {
-//        toDos.append(toDo)
-//        saveToDos()
-//    }
-    
-//    func updateToDo(_ toDo: ToDo) {
-//        guard let index = toDos.firstIndex(where: { $0.id == toDo.id }) else { return }
-//        toDos[index] = toDo
-//        saveToDos()
-//    }
-//    
-//    func deleteToDo(at indexSet: IndexSet) {
-//        toDos.remove(atOffsets: indexSet)
-//        saveToDos()
-//    }
-//    
-    func loadToDos() {
-        FileManager().readDocument(docName: fileName) { (result) in
-            switch result {
-                case .success(let data):
-                    let decoder = JSONDecoder()
-                    do {
-                        self.toDos = try decoder.decode([ToDo].self, from: data)
-                    } catch {
-                        //print("Error decoding file: \(ToDoError.decodingError.localizedDescription)")
-                        appError = ErrorType(error: .decodingError)
-                    }
-                case .failure(let error):
-                    //print("Error reading file: \(error.localizedDescription)")
-                    appError = ErrorType(error: error)
+    func toDosSubscription() {
+        $toDos
+            .subscribe(on: DispatchQueue(label: "background queue"))
+            .receive(on: DispatchQueue.main)
+            .dropFirst()
+            .encode(encoder: JSONEncoder())
+            .tryMap { data in
+                try data.write(to: FileManager.docDirUrl.appendingPathComponent(fileName))
             }
-        }
-    }
-    
-    func saveToDos() {
-        print("Saving toDos to file system eventually")
-        let encoder = JSONEncoder()
-        do {
-            let data = try encoder.encode(toDos)
-            let jsonString = String(decoding: data, as: UTF8.self)
-            FileManager().saveDocument(contents: jsonString, docName: fileName) { (error) in
-                if let error = error {
-                    //print("Error encoding file: \(error.localizedDescription)")
-                    appError = ErrorType(error: error)
+            .sink {[unowned self] completion in
+                switch completion {
+                    case.finished:
+                        print("Saving Completed")
+                    case.failure(let error):
+                        if error is ToDoError {
+                            appError = ErrorType(error: error as! ToDoError)
+                        } else {
+                            appError = ErrorType(error: ToDoError.encodingError)
+                        }
                 }
+            } receiveValue: { _ in
+                print("Saving file was successful")
             }
-        } catch {
-            //print("Error saving file: \(ToDoError.encodingError.localizedDescription)")
-            appError = ErrorType(error: .encodingError)
-        }
+            .store(in: &subscription)
     }
-    
 }
