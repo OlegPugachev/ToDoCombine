@@ -1,28 +1,42 @@
-//
-//  ToDoFormView.swift
-//  ToDoCombine
-//
-//  Created by Oleg on 28.01.2025.
-//
 
 import SwiftUI
 
 struct ToDoFormView: View {
     @EnvironmentObject var dataStore: DataStore
     @ObservedObject var formVM: ToDoFormViewModel
-    @Environment(\.presentationMode) var presentationMode
+    enum Field {
+        case todo
+    }
+    @FocusState private var focusedField: Field?
+    @Environment(\.dismiss) var dismiss
     
     var body: some View {
         NavigationView{
             Form {
                 VStack(alignment: .leading) {
                     TextField("ToDo", text: $formVM.name)
+                        .focused($focusedField, equals: .todo)
                     Toggle("Completed", isOn: $formVM.completed)
                 }
+            }
+            .task {
+                focusedField = .todo
             }
             .navigationTitle("ToDo")
             .navigationBarTitleDisplayMode(.inline)
             .navigationBarItems(leading: cancelButton, trailing: updateSaveButton)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    HStack {
+                        Spacer()
+                        Button {
+                            focusedField = nil
+                        } label: {
+                            Image(systemName: "keyboard.chevron.compact.down")
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -31,18 +45,18 @@ extension ToDoFormView {
     func updateToDo() {
         let toDo =  ToDo(id: formVM.id!, name: formVM.name, completed: formVM.completed)
         dataStore.updateToDo.send(toDo)
-        presentationMode.wrappedValue.dismiss()
+        dismiss()
     }
     
     func addToDo() {
         let toDo = ToDo(name: formVM.name)
         dataStore.addToDo.send(toDo)
-        presentationMode.wrappedValue.dismiss()
+        dismiss()
     }
     
     var cancelButton: some View {
         Button("Cancel") {
-            presentationMode.wrappedValue.dismiss()
+            dismiss()
         }
     }
     

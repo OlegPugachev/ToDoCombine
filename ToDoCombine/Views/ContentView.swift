@@ -1,9 +1,3 @@
-//
-//  ContentView.swift
-//  ToDoCombine
-//
-//  Created by Oleg on 28.01.2025.
-//
 
 import SwiftUI
 
@@ -25,21 +19,16 @@ struct ContentView: View {
                 }
                 .onDelete(perform: dataStore.deleteToDo.send)
             }
-            .listStyle(InsetGroupedListStyle())
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Text("My ToDos")
-                        .font(.largeTitle)
-                        .foregroundColor(.red)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
+            .listStyle(.insetGrouped)
+            .navigationBarTitle("My ToDos")
+            .navigationBarItems(
+                trailing:
                     Button {
                         modalType = .new
                     } label: {
                         Image(systemName: "plus.circle.fill")
                     }
-                }
-            }
+            )
             .sheet(item: $modalType) { $0
 //                modalType in
 //                modalType
